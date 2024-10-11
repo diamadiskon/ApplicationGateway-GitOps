@@ -1,0 +1,107 @@
+parameters:
+  - name: jsonPath
+    displayName: The json file name inside the configuration folder in ApplicationGateway-Configuration repository.
+    type: string
+    default: ''
+  - name: AddBackendPools
+    type: boolean
+    default: true
+  - name: AddBackendHttpSettings
+    type: boolean
+    default: true
+  - name: AddHealthProbes
+    type: boolean
+    default: true
+  - name: AddURLPathMaps
+    type: boolean
+    default: false
+  - name: AddPathRules
+    type: boolean
+    default: false
+  - name: AddRoutingRules
+    type: boolean
+    default: false
+trigger: none
+
+variables:
+
+  - name: serviceConnection
+    value: 'SC_agw_configuration'
+  - ${{ if eq(parameters.AddBackendPools, true) }}:
+    - name: AddBackendPools
+      value: 'true'
+  - ${{ if eq(parameters.AddBackendPools, false) }}:
+    - name: AddBackendPools
+      value: 'false'
+  - ${{ if eq(parameters.AddBackendHttpSettings, true) }}:
+    - name: AddBackendHttpSettings
+      value: 'true'
+  - ${{ if eq(parameters.AddBackendHttpSettings, false) }}:
+    - name: AddBackendHttpSettings
+      value: 'false'
+  - ${{ if eq(parameters.AddHealthProbes, true) }}:
+    - name: AddHealthProbes
+      value: 'true'
+  - ${{ if eq(parameters.AddHealthProbes, false) }}:
+    - name: AddHealthProbes
+      value: 'false'
+  - ${{ if eq(parameters.AddURLPathMaps, true) }}:
+    - name: AddURLPathMaps
+      value: 'true'
+  - ${{ if eq(parameters.AddURLPathMaps, false) }}:
+    - name: AddURLPathMaps
+      value: 'false'
+  - ${{ if eq(parameters.AddPathRules, true) }}:
+    - name: AddPathRules
+      value: 'true'
+  - ${{ if eq(parameters.AddPathRules, false) }}:
+    - name: AddPathRules
+      value: 'false'
+  - ${{ if eq(parameters.AddRoutingRules, true) }}:
+    - name: AddRoutingRules
+      value: 'true'
+  - ${{ if eq(parameters.AddRoutingRules, false) }}:
+    - name: AddRoutingRules
+      value: 'false'
+
+
+jobs:
+  ### RUN BASH SCRIPT ###
+  - job: runGatewayScript
+    displayName: CONFIGURE APPLICATION GATEWAY SETTINGS
+    pool:
+      name: Azure Pipelines
+    steps:
+      - checkout: self
+
+      - task: AzureCLI@2
+        displayName: CREATE JSON CONFIGURATION FOR APPLICATION GATEWAY
+        env:
+          AZURE_DEVOPS_EXT_PAT: $(System.AccessToken)
+        inputs:
+          azureSubscription: $(serviceConnection)
+          scriptType: 'bash'
+          scriptLocation: 'inlineScript'
+          inlineScript: |
+            subscription=$(jq -r '.subscription' configuration/${{parameters.jsonPath}})
+            az account set --subscription $subscription
+            /usr/bin/python3 create-agw-configuration.py -f configuration/${{parameters.jsonPath}}
+            cat agw-configuration.json
+
+      - task: AzureCLI@2
+        displayName: RUN GATEWAY SCRIPT
+        env:
+          AZURE_DEVOPS_EXT_PAT: $(System.AccessToken)
+        inputs:
+          azureSubscription: $(serviceConnection)
+          scriptType: 'bash'
+          scriptLocation: 'inlineScript'
+          inlineScript: |
+            cp agw-configuration.json configuration.json
+            cat configuration.json
+            application_gateway=$(jq -r '.application_gateway' configuration/${{parameters.jsonPath}})
+            echo $application_gateway
+            resource_group=$(jq -r '.resource_group' configuration/${{parameters.jsonPath}})
+            echo $resource_group
+            subscription=$(jq -r '.subscription' configuration/${{parameters.jsonPath}})
+            bash agw_cli.sh $subscription $resource_group $application_gateway configuration.json $(AddBackendPools) $(AddBackendHttpSettings) $(AddHealthProbes) $(AddURLPathMaps) $(AddPathRules) $(AddRoutingRules)

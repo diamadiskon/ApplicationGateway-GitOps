@@ -1,0 +1,13 @@
+{
+  "fqdns": [
+    "test-agw-bsgkh9d8cwgncjgh.northeurope-01.azurewebsites.net"
+  ],
+  "healthcheck_path": "/",
+  "application_path": "/quadible-services/*",
+  "name": "quadibleservices",
+  "application_name": "test-agw-bsgkh9d8cwgncjgh.northeurope-01.azurewebsites.net",
+  "application_gateway": "agw-test",
+  "appgw_rule_name": "rule_http",
+  "resource_group": "rg-dk",
+  "subscription": "Cloud-Native-Sub"
+}
